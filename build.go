@@ -73,8 +73,13 @@ func Build(
 		serviceBindingResolver := servicebindings.NewResolver()
 		nugetConfig, err := serviceBindingResolver.ResolveOne("nuget", "", context.Platform.Path)
 		if err == nil {
-			logger.Subprocess("Using NuGet.Config binding")
-			flags = append(flags, "-configfile", filepath.Join(nugetConfig.Path, "NuGet.Config"))
+			logger.Process("Using NuGet.Config binding")
+			nugetConfigPath, err := setupNuGetConfig(nugetConfig, context.WorkingDir)
+			if err != nil {
+				return packit.BuildResult{}, err
+			}
+			// Do not need to keep this file in the workdir after the publish
+			defer os.Remove(nugetConfigPath)
 		}
 
 		logger.Process("Executing build process")
@@ -97,4 +102,29 @@ func Build(
 
 		return packit.BuildResult{}, nil
 	}
+}
+
+func setupNuGetConfig(nugetConfig servicebindings.Binding, workingDir string) (string, error) {
+	// NOTE: NuGet.Config filename is case-sensitive
+	// https://github.com/NuGet/Home/issues/1427
+	nugetConfigPath := filepath.Join(nugetConfig.Path, "NuGet.Config")
+	// Move the NuGet.Config to the workspace folder
+	// Until the dotnet publish and restore are separated,
+	// The NuGet.Config MUST exist in the project directory (or above)
+	// Once restore is implemented, use -configFile flag
+	// see RFC 0003-publish-build-process-config.md
+	nugetConfigData, err := ioutil.ReadFile(nugetConfigPath)
+
+	if err != nil {
+		return "", err
+	}
+
+	workDirNugetConfig := filepath.Join(workingDir, "NuGet.Config")
+
+	err = ioutil.WriteFile(workDirNugetConfig, nugetConfigData, 0644)
+	if err != nil {
+		return "", err
+	}
+
+	return workDirNugetConfig, nil
 }

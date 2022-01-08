@@ -169,8 +169,6 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 				},
 			})
 
-			Expect(publishProcess.ExecuteCall.Receives.Flags).To(ContainElements([]string{"-configfile", filepath.Join(nugetConfigPath, "NuGet.Config")}))
-
 			Expect(buffer.String()).To(ContainSubstring("Using NuGet.Config binding"))
 		})
 	})
