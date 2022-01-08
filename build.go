@@ -10,6 +10,7 @@ import (
 	"github.com/paketo-buildpacks/packit"
 	"github.com/paketo-buildpacks/packit/chronos"
 	"github.com/paketo-buildpacks/packit/scribe"
+	"github.com/paketo-buildpacks/packit/servicebindings"
 )
 
 //go:generate faux --interface SourceRemover --output fakes/source_remover.go
@@ -62,6 +63,18 @@ func Build(
 		flags, err := configParser.ParseFlagsFromEnvVar("BP_DOTNET_PUBLISH_FLAGS")
 		if err != nil {
 			return packit.BuildResult{}, err
+		}
+
+		// An optional binding that allows users to provide their own NuGet.Config file
+		// via a service binding. Since a private registry can be used, it's possible
+		// the NuGet.Config contains credentials. Relevent Microsoft docs:
+		// https://docs.microsoft.com/en-us/nuget/consume-packages/consuming-packages-authenticated-feeds
+		// https://docs.microsoft.com/en-us/nuget/consume-packages/configuring-nuget-behavior#how-settings-are-applied
+		serviceBindingResolver := servicebindings.NewResolver()
+		nugetConfig, err := serviceBindingResolver.ResolveOne("nuget", "", context.Platform.Path)
+		if err == nil {
+			logger.Subprocess("Using NuGet.Config binding")
+			flags = append(flags, "-configfile", filepath.Join(nugetConfig.Path, "NuGet.Config"))
 		}
 
 		logger.Process("Executing build process")

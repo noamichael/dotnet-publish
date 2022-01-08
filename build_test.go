@@ -131,6 +131,50 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		})
 	})
 
+	context("when NuGet.Config is provided via Service Binding", func() {
+
+		platformPath, nugetConfigPath := "", ""
+
+		it.Before(func() {
+			nugetPlatformPath, err := ioutil.TempDir("", "nuget-test-platform")
+			Expect(err).NotTo(HaveOccurred())
+			platformPath = nugetPlatformPath
+
+			bindingsPath := filepath.Join(platformPath, "bindings")
+			err = os.MkdirAll(bindingsPath, os.ModePerm)
+			Expect(err).NotTo(HaveOccurred())
+
+			nugetConfigPath = filepath.Join(bindingsPath, "nuget")
+			err = os.MkdirAll(nugetConfigPath, os.ModePerm)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(ioutil.WriteFile(filepath.Join(nugetConfigPath, "NuGet.Config"), []byte("nuget-config-content"), 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(nugetConfigPath, "type"), []byte("nuget"), 0644)).To(Succeed())
+
+		})
+
+		it.After(func() {
+			Expect(os.RemoveAll(platformPath)).To(Succeed())
+		})
+
+		it("returns a build result", func() {
+			build(packit.BuildContext{
+				WorkingDir: workingDir,
+				BuildpackInfo: packit.BuildpackInfo{
+					Name:    "Some Buildpack",
+					Version: "0.0.0",
+				},
+				Platform: packit.Platform{
+					Path: platformPath,
+				},
+			})
+
+			Expect(publishProcess.ExecuteCall.Receives.Flags).To(ContainElements([]string{"-configfile", filepath.Join(nugetConfigPath, "NuGet.Config")}))
+
+			Expect(buffer.String()).To(ContainSubstring("Using NuGet.Config binding"))
+		})
+	})
+
 	context("failure cases", func() {
 		context("when the source code cannot be removed", func() {
 			it.Before(func() {

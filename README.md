@@ -37,3 +37,13 @@ To specify a project subdirectory to be used as the root of the app, please use
 the BP_DOTNET_PROJECT_PATH environment variable at build time either directly
 (e.g. pack build my-app --env BP_DOTNET_PROJECT_PATH=./src/my-app) or through a
 project.toml file.
+
+## Bindings
+
+The buildpack optionally accepts the following bindings:
+
+### Type: `nuget`
+|Secret                  | Description
+|------------------------|--------------
+|`NuGet.Config`          | If present, `-configfile` is prepended to the `dotnet` arguments
+
